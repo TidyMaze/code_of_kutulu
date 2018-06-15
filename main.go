@@ -10,15 +10,17 @@ type grid [][]cell
 type cell int
 
 const (
-	inputWall  = "#"
-	inputSpawn = "w"
-	inputEmpty = "."
+	inputWall    = "#"
+	inputSpawn   = "w"
+	inputShelter = "U"
+	inputEmpty   = "."
 )
 
 const (
-	cellWall  = iota
-	cellSpawn = iota
-	cellEmpty = iota
+	cellWall    = iota
+	cellSpawn   = iota
+	cellShelter = iota
+	cellEmpty   = iota
 )
 
 type coord struct {
@@ -74,6 +76,7 @@ const (
 	entityTypeWanderer    = "WANDERER"
 	entityTypeEffectPlan  = "EFFECT_PLAN"
 	entityTypeEffectLight = "EFFECT_LIGHT"
+	entityTypeSlasher     = "SLASHER"
 )
 
 func buildGridOfWalls(width int, height int) grid {
@@ -105,6 +108,8 @@ func cellToString(c cell) string {
 		return "#"
 	case cellSpawn:
 		return "w"
+	case cellShelter:
+		return "U"
 	case cellEmpty:
 		return "."
 	default:
@@ -118,6 +123,8 @@ func parseCell(c string) cell {
 		return cellWall
 	case inputSpawn:
 		return cellSpawn
+	case inputShelter:
+		return cellShelter
 	case inputEmpty:
 		return cellEmpty
 	default:
@@ -192,7 +199,7 @@ func getCloseEmptyCells(g grid, from coord) []coord {
 	res := make([]coord, 0)
 	for i, line := range g {
 		for j, cell := range line {
-			if cell == cellEmpty && dist(from, coord{j, i}) <= 4 {
+			if cell == cellEmpty && dist(from, coord{j, i}) <= 1 {
 				res = append(res, coord{j, i})
 			}
 		}
@@ -272,6 +279,7 @@ func main() {
 				}
 			case entityTypeEffectPlan:
 			case entityTypeEffectLight:
+			case entityTypeSlasher:
 			default:
 				panic("unrecognized entityType " + string(entityType))
 			}
