@@ -21,6 +21,10 @@ const (
 	cellEmpty = iota
 )
 
+type coord struct {
+	x, y int
+}
+
 type minionState int
 
 const (
@@ -29,13 +33,13 @@ const (
 )
 
 type explorer struct {
-	id   int
-	x, y int
+	id    int
+	coord coord
 }
 
 type wanderer struct {
 	id         int
-	x, y       int
+	coord      coord
 	state      minionState
 	target     int
 	recallTime int
@@ -43,7 +47,7 @@ type wanderer struct {
 
 type spawningMinion struct {
 	id        int
-	x, y      int
+	coord     coord
 	state     minionState
 	target    int
 	spawnTime int
@@ -54,15 +58,15 @@ type loggable interface {
 }
 
 func (e explorer) String() string {
-	return fmt.Sprintf("explorer %d %d %d", e.id, e.x, e.y)
+	return fmt.Sprintf("explorer %d %d %d", e.id, e.coord.x, e.coord.y)
 }
 
 func (w wanderer) String() string {
-	return fmt.Sprintf("wanderer %d %d %d %d %d %d", w.id, w.x, w.y, w.state, w.target, w.recallTime)
+	return fmt.Sprintf("wanderer %d %d %d %d %d %d", w.id, w.coord.x, w.coord.y, w.state, w.target, w.recallTime)
 }
 
 func (s spawningMinion) String() string {
-	return fmt.Sprintf("spawningMinion %d %d %d %d %d %d", s.id, s.x, s.y, s.state, s.target, s.spawnTime)
+	return fmt.Sprintf("spawningMinion %d %d %d %d %d %d", s.id, s.coord.x, s.coord.y, s.state, s.target, s.spawnTime)
 }
 
 const (
@@ -181,14 +185,14 @@ func main() {
 
 			switch entityType {
 			case entityTypeExplorer:
-				explorers = append(explorers, explorer{id, x, y})
+				explorers = append(explorers, explorer{id, coord{x, y}})
 			case entityTypeWanderer:
 				state := minionState(param1)
 				switch state {
 				case stateSpawning:
-					spawningMinions = append(spawningMinions, spawningMinion{id, x, y, stateSpawning, param2, param0})
+					spawningMinions = append(spawningMinions, spawningMinion{id, coord{x, y}, stateSpawning, param2, param0})
 				case stateWandering:
-					wanderers = append(wanderers, wanderer{id, x, y, stateWandering, param2, param0})
+					wanderers = append(wanderers, wanderer{id, coord{x, y}, stateWandering, param2, param0})
 				default:
 					panic("unrecognized state " + string(state))
 				}
