@@ -186,6 +186,18 @@ func getEmptyCells(g grid) []coord {
 	return res
 }
 
+func getCloseEmptyCells(g grid, from coord) []coord {
+	res := make([]coord, 0)
+	for i, line := range g {
+		for j, cell := range line {
+			if cell == cellEmpty && dist(from, coord{j, i}) <= 4 {
+				res = append(res, coord{j, i})
+			}
+		}
+	}
+	return res
+}
+
 func getFarestCoord(from coord, candidates []coord) coord {
 	if len(candidates) == 0 {
 		panic("no candidates for farest coord")
@@ -204,7 +216,7 @@ func getFarestCoord(from coord, candidates []coord) coord {
 
 func getAwayFromClosestWanderer(g grid, me explorer, wanderers []wanderer) coord {
 	closestWanderer := getClosestWanderer(me.coord, wanderers)
-	empties := getEmptyCells(g)
+	empties := getCloseEmptyCells(g, me.coord)
 	return getFarestCoord(closestWanderer.coord, empties)
 }
 
