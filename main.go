@@ -72,11 +72,13 @@ func (s spawningMinion) String() string {
 }
 
 const (
-	entityTypeExplorer    = "EXPLORER"
-	entityTypeWanderer    = "WANDERER"
-	entityTypeEffectPlan  = "EFFECT_PLAN"
-	entityTypeEffectLight = "EFFECT_LIGHT"
-	entityTypeSlasher     = "SLASHER"
+	entityTypeExplorer      = "EXPLORER"
+	entityTypeWanderer      = "WANDERER"
+	entityTypeEffectPlan    = "EFFECT_PLAN"
+	entityTypeEffectLight   = "EFFECT_LIGHT"
+	entityTypeSlasher       = "SLASHER"
+	entityTypeEffectShelter = "EFFECT_SHELTER"
+	entityTypeEffectYell    = "EFFECT_YELL"
 )
 
 func buildGridOfWalls(width int, height int) grid {
@@ -280,6 +282,8 @@ func main() {
 			case entityTypeEffectPlan:
 			case entityTypeEffectLight:
 			case entityTypeSlasher:
+			case entityTypeEffectShelter:
+			case entityTypeEffectYell:
 			default:
 				panic("unrecognized entityType " + string(entityType))
 			}
