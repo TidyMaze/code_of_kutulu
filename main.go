@@ -197,11 +197,11 @@ func getEmptyCells(g grid) []coord {
 	return res
 }
 
-func getCloseEmptyCells(g grid, from coord) []coord {
+func getCloseTraversableCells(g grid, from coord) []coord {
 	res := make([]coord, 0)
 	for i, line := range g {
 		for j, cell := range line {
-			if cell == cellEmpty && dist(from, coord{j, i}) <= 1 {
+			if (cell == cellEmpty || cell == cellSpawn || cell == cellShelter) && dist(from, coord{j, i}) <= 1 {
 				res = append(res, coord{j, i})
 			}
 		}
@@ -227,7 +227,7 @@ func getFarestCoord(from coord, candidates []coord) coord {
 
 func getAwayFromClosestWanderer(g grid, me explorer, wanderers []wanderer) coord {
 	closestWanderer := getClosestWanderer(me.coord, wanderers)
-	empties := getCloseEmptyCells(g, me.coord)
+	empties := getCloseTraversableCells(g, me.coord)
 	return getFarestCoord(closestWanderer.coord, empties)
 }
 
