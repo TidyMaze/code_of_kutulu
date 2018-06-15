@@ -128,7 +128,6 @@ func parseGrid(scanner *bufio.Scanner, width int, height int) grid {
 	for i := 0; i < height; i++ {
 		scanner.Scan()
 		line := scanner.Text()
-		log("parsing line " + line)
 		for j, c := range line {
 			res[i][j] = parseCell(string(c))
 		}
@@ -146,6 +145,67 @@ func sendMove(x, y int) {
 
 func sendWait() {
 	send("WAIT")
+}
+
+func abs(n int) int {
+	if n < 0 {
+		return -n
+	}
+	return n
+}
+
+func dist(from coord, to coord) int {
+	return abs(to.x-from.x) + abs(to.y-from.y)
+}
+
+func getClosestWanderer(from coord, wanderers []wanderer) wanderer {
+	if len(wanderers) == 0 {
+		panic("cannot find closest wanderer if there is no wanderer")
+	}
+	bestIndex := -1
+	bestDistance := -1
+	for i, w := range wanderers {
+		d := dist(w.coord, from)
+		if bestDistance == -1 || d < bestDistance {
+			bestIndex = i
+			bestDistance = d
+		}
+	}
+	return wanderers[bestIndex]
+}
+
+func getEmptyCells(g grid) []coord {
+	res := make([]coord, 0)
+	for i, line := range g {
+		for j, cell := range line {
+			if cell == cellEmpty {
+				res = append(res, coord{j, i})
+			}
+		}
+	}
+	return res
+}
+
+func getFarestCoord(from coord, candidates []coord) coord {
+	if len(candidates) == 0 {
+		panic("no candidates for farest coord")
+	}
+	bestIndex := -1
+	bestDistance := -1
+	for i, c := range candidates {
+		d := dist(from, c)
+		if bestDistance == -1 || d > bestDistance {
+			bestIndex = i
+			bestDistance = d
+		}
+	}
+	return candidates[bestIndex]
+}
+
+func getAwayFromClosestWanderer(g grid, me explorer, wanderers []wanderer) coord {
+	closestWanderer := getClosestWanderer(me.coord, wanderers)
+	empties := getEmptyCells(g)
+	return getFarestCoord(closestWanderer.coord, empties)
 }
 
 func main() {
@@ -213,6 +273,16 @@ func main() {
 			log(s.String())
 		}
 
-		sendMove(0, 0)
+		myExplorer := explorers[0]
+
+		log("Me :")
+		log(myExplorer.String())
+
+		if len(wanderers) > 0 {
+			away := getAwayFromClosestWanderer(currentGrid, myExplorer, wanderers)
+			sendMove(away.x, away.y)
+		} else {
+			sendWait()
+		}
 	}
 }
