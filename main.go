@@ -238,26 +238,30 @@ func getCloseTraversableCells(g grid, from coord) []coord {
 	return res
 }
 
-func getFarestCoord(from coord, candidates []coord) coord {
+func getFarestCoord(minions []minion, candidates []coord) coord {
 	if len(candidates) == 0 {
 		panic("no candidates for farest coord")
 	}
 	bestIndex := -1
 	bestDistance := -1
 	for i, c := range candidates {
-		d := dist(from, c)
-		if bestDistance == -1 || d > bestDistance {
+		sum := 0
+		for _, m := range minions {
+			sum += dist(m.getCoord(), c)
+		}
+
+		if bestDistance == -1 || sum > bestDistance {
 			bestIndex = i
-			bestDistance = d
+			bestDistance = sum
 		}
 	}
 	return candidates[bestIndex]
 }
 
-func getAwayFromClosestMinion(g grid, me explorer, minions []minion) coord {
-	closestMinion := getClosestMinionCoord(me.coord, minions)
+func getAwayFromMinions(g grid, me explorer, minions []minion) coord {
+	// closestMinion := getClosestMinionCoord(me.coord, minions)
 	empties := getCloseTraversableCells(g, me.coord)
-	return getFarestCoord(closestMinion, empties)
+	return getFarestCoord(minions, empties)
 }
 
 func getBestExplorer(me explorer, explorers []explorer) coord {
@@ -276,7 +280,7 @@ func getFrighteningMinions(me explorer, wanderers []wanderer, slashers []slasher
 	minions := make([]minion, 0)
 
 	for _, w := range wanderers {
-		if dist(w.coord, me.coord) <= 3 {
+		if dist(w.coord, me.coord) <= 4 {
 			minions = append(minions, w)
 		}
 	}
@@ -388,7 +392,7 @@ func main() {
 		frighteningMinions := getFrighteningMinions(myExplorer, wanderers, slashers)
 
 		if len(frighteningMinions) > 0 {
-			awayMinionCoord := getAwayFromClosestMinion(currentGrid, myExplorer, frighteningMinions)
+			awayMinionCoord := getAwayFromMinions(currentGrid, myExplorer, frighteningMinions)
 			sendMove(awayMinionCoord.x, awayMinionCoord.y, "Avoiding minion")
 		} else if len(explorers) > 1 {
 			best := getBestExplorer(myExplorer, explorers)
