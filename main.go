@@ -186,7 +186,7 @@ func dist(from coord, to coord) int {
 
 func getClosestMinionCoord(from coord, wanderers []wanderer, slashers []slasher) coord {
 	if len(wanderers) == 0 && len(slashers) == 0 {
-		panic("cannot find closest wanderer if there is no wanderer")
+		panic("cannot find closest wanderer if there is no minion")
 	}
 	bestDistance := -1
 	bestCoord := coord{0, 0}
