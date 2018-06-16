@@ -178,12 +178,12 @@ func send(command string) {
 	fmt.Println(command)
 }
 
-func sendMove(x, y int) {
-	send(fmt.Sprintf("MOVE %d %d", x, y))
+func sendMove(x, y int, message string) {
+	send(fmt.Sprintf("MOVE %d %d %s", x, y, message))
 }
 
-func sendWait() {
-	send("WAIT")
+func sendWait(message string) {
+	send(fmt.Sprintf("WAIT %s", message))
 }
 
 func abs(n int) int {
@@ -276,7 +276,7 @@ func getFrighteningMinions(me explorer, wanderers []wanderer, slashers []slasher
 	minions := make([]minion, 0)
 
 	for _, w := range wanderers {
-		if dist(w.coord, me.coord) <= 5 {
+		if dist(w.coord, me.coord) <= 3 {
 			minions = append(minions, w)
 		}
 	}
@@ -389,12 +389,12 @@ func main() {
 
 		if len(frighteningMinions) > 0 {
 			awayMinionCoord := getAwayFromClosestMinion(currentGrid, myExplorer, frighteningMinions)
-			sendMove(awayMinionCoord.x, awayMinionCoord.y)
+			sendMove(awayMinionCoord.x, awayMinionCoord.y, "Avoiding minion")
 		} else if len(explorers) > 1 {
 			best := getBestExplorer(myExplorer, explorers)
-			sendMove(best.x, best.y)
+			sendMove(best.x, best.y, "Following leader")
 		} else {
-			sendWait()
+			sendWait("Nothing to do")
 		}
 	}
 }
