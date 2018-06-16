@@ -32,6 +32,9 @@ type minionState int
 const (
 	stateSpawning  minionState = 0
 	stateWandering minionState = 1
+	stateStalking  minionState = 2
+	stateRushing   minionState = 3
+	stateStunned   minionState = 4
 )
 
 type explorer struct {
@@ -45,6 +48,14 @@ type wanderer struct {
 	state      minionState
 	target     int
 	recallTime int
+}
+
+type slasher struct {
+	id              int
+	coord           coord
+	state           minionState
+	target          int
+	changeStateTime int
 }
 
 type spawningMinion struct {
@@ -69,6 +80,10 @@ func (w wanderer) String() string {
 
 func (s spawningMinion) String() string {
 	return fmt.Sprintf("spawningMinion %d %d %d %d %d %d", s.id, s.coord.x, s.coord.y, s.state, s.target, s.spawnTime)
+}
+
+func (s slasher) String() string {
+	return fmt.Sprintf("slasher %d %d %d %d %d %d", s.id, s.coord.x, s.coord.y, s.state, s.target, s.changeStateTime)
 }
 
 const (
@@ -169,20 +184,28 @@ func dist(from coord, to coord) int {
 	return abs(to.x-from.x) + abs(to.y-from.y)
 }
 
-func getClosestWanderer(from coord, wanderers []wanderer) wanderer {
-	if len(wanderers) == 0 {
+func getClosestMinionCoord(from coord, wanderers []wanderer, slashers []slasher) coord {
+	if len(wanderers) == 0 && len(slashers) == 0 {
 		panic("cannot find closest wanderer if there is no wanderer")
 	}
-	bestIndex := -1
 	bestDistance := -1
-	for i, w := range wanderers {
+	bestCoord := coord{0, 0}
+	for _, w := range wanderers {
 		d := dist(w.coord, from)
 		if bestDistance == -1 || d < bestDistance {
-			bestIndex = i
 			bestDistance = d
+			bestCoord = w.coord
 		}
 	}
-	return wanderers[bestIndex]
+
+	for _, s := range slashers {
+		d := dist(s.coord, from)
+		if bestDistance == -1 || d < bestDistance {
+			bestDistance = d
+			bestCoord = s.coord
+		}
+	}
+	return bestCoord
 }
 
 func getEmptyCells(g grid) []coord {
@@ -225,10 +248,10 @@ func getFarestCoord(from coord, candidates []coord) coord {
 	return candidates[bestIndex]
 }
 
-func getAwayFromClosestWanderer(g grid, me explorer, wanderers []wanderer) coord {
-	closestWanderer := getClosestWanderer(me.coord, wanderers)
+func getAwayFromClosestMinion(g grid, me explorer, wanderers []wanderer, slashers []slasher) coord {
+	closestMinion := getClosestMinionCoord(me.coord, wanderers, slashers)
 	empties := getCloseTraversableCells(g, me.coord)
-	return getFarestCoord(closestWanderer.coord, empties)
+	return getFarestCoord(closestMinion, empties)
 }
 
 func main() {
@@ -258,6 +281,7 @@ func main() {
 
 		explorers := make([]explorer, 0)
 		wanderers := make([]wanderer, 0)
+		slashers := make([]slasher, 0)
 		spawningMinions := make([]spawningMinion, 0)
 
 		for i := 0; i < entityCount; i++ {
@@ -282,6 +306,21 @@ func main() {
 			case entityTypeEffectPlan:
 			case entityTypeEffectLight:
 			case entityTypeSlasher:
+				state := minionState(param1)
+				switch state {
+				case stateSpawning:
+					spawningMinions = append(spawningMinions, spawningMinion{id, coord{x, y}, stateSpawning, param2, param0})
+				case stateWandering:
+					fallthrough
+				case stateStalking:
+					fallthrough
+				case stateRushing:
+					fallthrough
+				case stateStunned:
+					slashers = append(slashers, slasher{id, coord{x, y}, state, param2, param0})
+				default:
+					panic("unrecognized state " + string(state))
+				}
 			case entityTypeEffectShelter:
 			case entityTypeEffectYell:
 			default:
@@ -301,13 +340,17 @@ func main() {
 			log(s.String())
 		}
 
+		for _, s := range slashers {
+			log(s.String())
+		}
+
 		myExplorer := explorers[0]
 
 		log("Me :")
 		log(myExplorer.String())
 
 		if len(wanderers) > 0 {
-			away := getAwayFromClosestWanderer(currentGrid, myExplorer, wanderers)
+			away := getAwayFromClosestMinion(currentGrid, myExplorer, wanderers, slashers)
 			sendMove(away.x, away.y)
 		} else {
 			sendWait()
