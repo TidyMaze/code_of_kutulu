@@ -87,7 +87,6 @@ func (s slasher) String() string {
 }
 
 const (
-<<<<<<< HEAD
 	entityTypeExplorer      = "EXPLORER"
 	entityTypeWanderer      = "WANDERER"
 	entityTypeEffectPlan    = "EFFECT_PLAN"
@@ -95,13 +94,6 @@ const (
 	entityTypeSlasher       = "SLASHER"
 	entityTypeEffectShelter = "EFFECT_SHELTER"
 	entityTypeEffectYell    = "EFFECT_YELL"
-=======
-	entityTypeExplorer    = "EXPLORER"
-	entityTypeWanderer    = "WANDERER"
-	entityTypeEffectPlan  = "EFFECT_PLAN"
-	entityTypeEffectLight = "EFFECT_LIGHT"
-	entityTypeSlasher     = "SLASHER"
->>>>>>> fbde98a53b6d80c20255baedc246a44eb87e7a04
 )
 
 func buildGridOfWalls(width int, height int) grid {
@@ -232,11 +224,7 @@ func getCloseTraversableCells(g grid, from coord) []coord {
 	res := make([]coord, 0)
 	for i, line := range g {
 		for j, cell := range line {
-<<<<<<< HEAD
 			if (cell == cellEmpty || cell == cellSpawn || cell == cellShelter) && dist(from, coord{j, i}) <= 1 {
-=======
-			if cell == cellEmpty && dist(from, coord{j, i}) <= 1 {
->>>>>>> fbde98a53b6d80c20255baedc246a44eb87e7a04
 				res = append(res, coord{j, i})
 			}
 		}
@@ -318,7 +306,6 @@ func main() {
 			case entityTypeEffectPlan:
 			case entityTypeEffectLight:
 			case entityTypeSlasher:
-<<<<<<< HEAD
 				state := minionState(param1)
 				switch state {
 				case stateSpawning:
@@ -336,8 +323,6 @@ func main() {
 				}
 			case entityTypeEffectShelter:
 			case entityTypeEffectYell:
-=======
->>>>>>> fbde98a53b6d80c20255baedc246a44eb87e7a04
 			default:
 				panic("unrecognized entityType " + string(entityType))
 			}
