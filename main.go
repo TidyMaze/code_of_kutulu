@@ -280,7 +280,7 @@ func getFrighteningMinions(me explorer, wanderers []wanderer, slashers []slasher
 	minions := make([]minion, 0)
 
 	for _, w := range wanderers {
-		if dist(w.coord, me.coord) <= 4 {
+		if dist(w.coord, me.coord) <= 6 {
 			minions = append(minions, w)
 		}
 	}
