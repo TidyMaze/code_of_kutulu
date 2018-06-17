@@ -239,6 +239,7 @@ func getFarestCoord(minions []minion, candidates []coord) coord {
 		if bestDistance == -1 || sum > bestDistance {
 			bestIndex = i
 			bestDistance = sum
+			log("Farest : ", candidates[bestIndex], " with distance ", bestDistance)
 		}
 	}
 	return candidates[bestIndex]
@@ -331,27 +332,12 @@ func (pq *PriorityQueue) update(value coord, priority int) {
 	}
 }
 
-func demoHeap() {
-	items := map[coord]int{
-		coord{0, 0}: 3, coord{1, 1}: 2, coord{2, 2}: 4,
-	}
-
-	pq := make(PriorityQueue, len(items))
-	i := 0
-	for value, priority := range items {
-		fmt.Println("Inserting ", value)
-		pq[i] = &Item{
-			value:    value,
-			priority: priority,
-			index:    i,
+func logQueue(pq PriorityQueue) {
+	for i, item := range pq {
+		if i >= 5 {
+			return
 		}
-		i++
-	}
-	heap.Init(&pq)
-
-	for pq.Len() > 0 {
-		item := heap.Pop(&pq).(*Item)
-		fmt.Printf("%.2d:%+v", item.priority, item.value.(coord))
+		log(fmt.Sprintf("%.2d:%+v", item.priority, item.value.(coord)))
 	}
 }
 
@@ -382,16 +368,29 @@ func neighbors(grid grid, from coord) []coord {
 	res := make([]coord, 4)
 	for _, o := range offsets {
 		targetCoord := coord{from.x + o.x, from.y + o.y}
-		targetCell := grid.getCell(targetCoord)
-		if isTraversable(targetCell) {
+
+		if insideGrid(grid, targetCoord) && isTraversable(grid.getCell(targetCoord)) {
 			res = append(res, targetCoord)
 		}
 	}
 	return res
 }
 
+func insideGrid(g grid, c coord) bool {
+	return c.x >= 0 && c.x < len(g[0]) && c.y >= 0 && c.y < len(g)
+}
+
 func (g grid) getCell(at coord) cell {
+	if !insideGrid(g, at) {
+		panic(fmt.Sprintf("Coord %+v outside grid", at))
+	}
 	return g[at.y][at.x]
+}
+
+func checkDst(d int) {
+	if d < 0 || d > 1000 {
+		panic(fmt.Sprintf("distance was %d", d))
+	}
 }
 
 func dijkstra(grid grid, source coord) (map[coord]int, map[coord]coord) {
@@ -405,23 +404,34 @@ func dijkstra(grid grid, source coord) (map[coord]int, map[coord]coord) {
 
 	// add all traversable cells queue
 	for _, v := range getTraversableCells(grid) {
-		if v != source {
-			dist[v] = math.MaxInt64
+		dv, prsDv := dist[v]
+		checkDst(dv)
+		priority := math.MaxInt64
+		if prsDv {
+			priority = dv
 		}
 		heap.Push(&q, &Item{
 			value:    v,
-			priority: dist[v],
+			priority: priority,
 		})
 	}
 
 	for len(q) > 0 {
 		u := heap.Pop(&q).(*Item).value.(coord)
 		for _, v := range neighbors(grid, u) {
-			alt := dist[u] + 1
-			if alt < dist[v] {
-				dist[v] = alt
-				prev[v] = u
-				q.update(v, alt)
+			dU, prsU := dist[u]
+
+			if prsU {
+				alt := dU + 1
+				checkDst(alt)
+
+				dV, prsV := dist[v]
+
+				if !prsV || alt < dV {
+					dist[v] = alt
+					prev[v] = u
+					q.update(v, alt)
+				}
 			}
 		}
 	}
@@ -528,9 +538,9 @@ func main() {
 		log("Me :")
 		log(myExplorer)
 
-		distFromMe, prevFromMe := dijkstra(currentGrid, myExplorer.coord)
-		log("distances: ", distFromMe)
-		log("previous: ", prevFromMe)
+		distFromMe, _ := dijkstra(currentGrid, myExplorer.coord)
+		// log("distances: ", distFromMe)
+		// log("previous: ", prevFromMe)
 
 		frighteningMinions := getFrighteningMinions(myExplorer, wanderers, slashers, distFromMe)
 
