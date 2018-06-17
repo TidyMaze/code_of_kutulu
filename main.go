@@ -9,13 +9,22 @@ import (
 )
 
 // FactWanderers multiplier
+// 1 => 137
+// 2 => 105
+// 3 => 220
 const FactWanderers = 2
 
 // TraversableDist how far we search available cells
-const TraversableDist = 6
+// 4 => 230
+// 5 => 58
+// 6 => 105
+const TraversableDist = 5
 
 // RangeWanderers guard
-const RangeWanderers = 6
+// 5 => 191
+// 6 => 58
+// 7  => 14
+const RangeWanderers = 7
 
 // RangeSlashers guard
 const RangeSlashers = 6
