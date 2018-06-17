@@ -1,3 +1,7 @@
+/**
+Codingame kutulu
+*/
+
 package main
 
 import (
