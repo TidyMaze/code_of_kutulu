@@ -64,9 +64,11 @@ const (
 )
 
 type explorer struct {
-	id     int
-	coord  coord
-	sanity int
+	id              int
+	coord           coord
+	sanity          int
+	plansRemaining  int
+	lightsRemaining int
 }
 
 type minion interface {
@@ -95,6 +97,18 @@ type spawningMinion struct {
 	state     minionState
 	target    int
 	spawnTime int
+}
+
+type yell struct {
+	by, on int
+}
+
+type light struct {
+	by int
+}
+
+type plan struct {
+	by int
 }
 
 func (w wanderer) getCoord() coord {
@@ -194,6 +208,18 @@ func sendMove(x, y int, message string) {
 
 func sendWait(message string) {
 	send(fmt.Sprintf("WAIT %s", message))
+}
+
+func sendPlan(message string) {
+	send(fmt.Sprintf("PLAN %s", message))
+}
+
+func sendLight(message string) {
+	send(fmt.Sprintf("LIGHT %s", message))
+}
+
+func sendYell(message string) {
+	send(fmt.Sprintf("YELL %s", message))
 }
 
 func abs(n int) int {
@@ -473,6 +499,61 @@ func dijkstra(grid grid, source coord, wanderers []wanderer) (map[coord]int, map
 	return dist, prev
 }
 
+func canUseLight(explorer explorer, onGoingYell bool, onGoingPlan bool, onGoingLight bool) bool {
+	return explorer.lightsRemaining > 0 && !onGoingYell && !onGoingPlan && !onGoingLight
+}
+func canUsePlan(explorer explorer, onGoingYell bool, onGoingPlan bool, onGoingLight bool) bool {
+	return explorer.plansRemaining > 0 && !onGoingYell && !onGoingPlan && !onGoingLight
+}
+func canUseYell(onGoingYell bool, onGoingPlan bool, onGoingLight bool) bool {
+	return !onGoingYell && !onGoingPlan && !onGoingLight
+}
+
+func existsLightTarget(distFromMe map[coord]int, wanderers []wanderer) bool {
+	for _, w := range wanderers {
+		if d, prs := distFromMe[w.coord]; prs && d <= 5 {
+			return true
+		}
+	}
+	return false
+}
+
+func existsOtherExplorersToHeal(myExplorer explorer, distFromMe map[coord]int, explorers []explorer) bool {
+	if myExplorer.sanity > 250-60 {
+		return false
+	}
+	for _, e := range explorers {
+		if d, prs := distFromMe[e.coord]; e.id != myExplorer.id && prs && d <= 2 && e.sanity <= (250-15) {
+			return true
+		}
+	}
+	return false
+}
+
+var yelled = make([]int, 0)
+
+func alreadyYelled(explorer explorer) bool {
+	return contains(yelled, explorer.id)
+}
+
+func contains(s []int, e int) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}
+
+func existsOtherExplorersInRangeYell(myExplorer explorer, distFromMe map[coord]int, explorers []explorer) bool {
+	for _, e := range explorers {
+		if d, prs := distFromMe[e.coord]; e.id != myExplorer.id && prs && d <= 1 && !alreadyYelled(e) {
+			return true
+		}
+	}
+	return false
+}
+
 func main() {
 
 	scanner := bufio.NewScanner(os.Stdin)
@@ -502,6 +583,9 @@ func main() {
 		wanderers := make([]wanderer, 0)
 		slashers := make([]slasher, 0)
 		spawningMinions := make([]spawningMinion, 0)
+		yells := make([]yell, 0)
+		lights := make([]light, 0)
+		plans := make([]plan, 0)
 
 		for i := 0; i < entityCount; i++ {
 			var entityType string
@@ -511,7 +595,7 @@ func main() {
 
 			switch entityType {
 			case entityTypeExplorer:
-				explorers = append(explorers, explorer{id, coord{x, y}, param0})
+				explorers = append(explorers, explorer{id, coord{x, y}, param0, param1, param2})
 			case entityTypeWanderer:
 				state := minionState(param1)
 				switch state {
@@ -523,7 +607,9 @@ func main() {
 					panic("unrecognized state " + string(state))
 				}
 			case entityTypeEffectPlan:
+				plans = append(plans, plan{param1})
 			case entityTypeEffectLight:
+				lights = append(lights, light{param1})
 			case entityTypeSlasher:
 				state := minionState(param1)
 				switch state {
@@ -542,6 +628,7 @@ func main() {
 				}
 			case entityTypeEffectShelter:
 			case entityTypeEffectYell:
+				yells = append(yells, yell{param1, param2})
 			default:
 				panic("unrecognized entityType " + string(entityType))
 			}
@@ -572,20 +659,60 @@ func main() {
 		log("Me :")
 		log(myExplorer)
 
+		// update yelled
+		for _, y := range yells {
+			if y.by == myExplorer.id && contains(yelled, y.on) {
+				yelled = append(yelled, y.on)
+			}
+		}
+
+		onGoingYell := false
+		for _, e := range yells {
+			if e.by == myExplorer.id {
+				onGoingYell = true
+			}
+		}
+
+		onGoingLight := false
+		for _, e := range lights {
+			if e.by == myExplorer.id {
+				onGoingLight = true
+			}
+		}
+		onGoingPlan := false
+		for _, e := range plans {
+			if e.by == myExplorer.id {
+				onGoingPlan = true
+			}
+		}
+
 		distFromMe, _ := dijkstra(currentGrid, myExplorer.coord, wanderers)
 		// log("distances: ", distFromMe)
 		// log("previous: ", prevFromMe)
 
-		frighteningMinions := getFrighteningMinions(myExplorer, wanderers, slashers, distFromMe)
-
-		if len(frighteningMinions) > 0 {
-			awayMinionCoord := getAwayFromMinions(currentGrid, myExplorer, frighteningMinions, distFromMe)
-			sendMove(awayMinionCoord.x, awayMinionCoord.y, "Avoiding minion")
-		} else if len(explorers) > 1 {
-			best := getBestExplorer(myExplorer, explorers)
-			sendMove(best.x, best.y, "Following leader")
+		if canUseLight(myExplorer, onGoingYell, onGoingPlan, onGoingLight) && existsLightTarget(distFromMe, wanderers) {
+			sendLight("LIGTH IT BABY!")
+		} else if canUsePlan(myExplorer, onGoingYell, onGoingPlan, onGoingLight) && (existsOtherExplorersToHeal(myExplorer, distFromMe, explorers) || myExplorer.sanity < 100) {
+			sendPlan("PLAN IT BABY!")
+		} else if canUseYell(onGoingYell, onGoingPlan, onGoingLight) && existsOtherExplorersInRangeYell(myExplorer, distFromMe, explorers) {
+			sendYell("YELL IT BABY!")
 		} else {
-			sendWait("Nothing to do")
+			frighteningMinions := getFrighteningMinions(myExplorer, wanderers, slashers, distFromMe)
+			if len(frighteningMinions) > 0 {
+				awayMinionCoord := getAwayFromMinions(currentGrid, myExplorer, frighteningMinions, distFromMe)
+				sendMove(awayMinionCoord.x, awayMinionCoord.y, "Avoiding minion")
+			} else if len(explorers) > 1 {
+				best := getBestExplorer(myExplorer, explorers)
+				sendMove(best.x, best.y, "Following leader")
+			} else {
+				sendWait("Nothing to do")
+			}
 		}
+		// if myExplorer.sanity <= 30 && myExplorer.lightsRemaining > 0 {
+		// 	panic(fmt.Sprintf("Still have so much lights! (%d)", myExplorer.lightsRemaining))
+		// }
+		// if myExplorer.sanity <= 30 && myExplorer.plansRemaining > 0 {
+		// 	panic(fmt.Sprintf("Still have so much plans! (%d)", myExplorer.plansRemaining))
+		// }
 	}
 }
