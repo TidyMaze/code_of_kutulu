@@ -216,7 +216,8 @@ func getCloseTraversableCells(g grid, from coord, distFromMe map[coord]int) []co
 	res := make([]coord, 0)
 	for i, line := range g {
 		for j, cell := range line {
-			if (isTraversable(cell)) && distFromMe[coord{j, i}] <= 3 {
+			d, prs := distFromMe[coord{j, i}]
+			if (isTraversable(cell)) && prs && d <= 3 {
 				res = append(res, coord{j, i})
 			}
 		}
