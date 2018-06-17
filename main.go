@@ -217,7 +217,7 @@ func getCloseTraversableCells(g grid, from coord, distFromMe map[coord]int) []co
 	for i, line := range g {
 		for j, cell := range line {
 			d, prs := distFromMe[coord{j, i}]
-			if (isTraversable(cell)) && prs && d <= 3 {
+			if (isTraversable(cell)) && prs && d <= 6 {
 				res = append(res, coord{j, i})
 			}
 		}
@@ -395,7 +395,7 @@ func checkDst(d int) {
 	}
 }
 
-func dijkstra(grid grid, source coord) (map[coord]int, map[coord]coord) {
+func dijkstra(grid grid, source coord, wanderers []wanderer) (map[coord]int, map[coord]coord) {
 	dist := make(map[coord]int)
 	dist[source] = 0
 
@@ -424,7 +424,15 @@ func dijkstra(grid grid, source coord) (map[coord]int, map[coord]coord) {
 			dU, prsU := dist[u]
 
 			if prsU {
-				alt := dU + 1
+
+				countWanderers := 0
+				for _, w := range wanderers {
+					if w.coord == v {
+						countWanderers++
+					}
+				}
+
+				alt := dU + 1 + countWanderers*2
 				checkDst(alt)
 
 				dV, prsV := dist[v]
@@ -540,7 +548,7 @@ func main() {
 		log("Me :")
 		log(myExplorer)
 
-		distFromMe, _ := dijkstra(currentGrid, myExplorer.coord)
+		distFromMe, _ := dijkstra(currentGrid, myExplorer.coord, wanderers)
 		// log("distances: ", distFromMe)
 		// log("previous: ", prevFromMe)
 
