@@ -8,6 +8,18 @@ import (
 	"os"
 )
 
+// FactWanderers multiplier
+const FactWanderers = 2
+
+// TraversableDist how far we search available cells
+const TraversableDist = 6
+
+// RangeWanderers guard
+const RangeWanderers = 6
+
+// RangeSlashers guard
+const RangeSlashers = 6
+
 type grid [][]cell
 type cell int
 
@@ -217,7 +229,7 @@ func getCloseTraversableCells(g grid, from coord, distFromMe map[coord]int) []co
 	for i, line := range g {
 		for j, cell := range line {
 			d, prs := distFromMe[coord{j, i}]
-			if (isTraversable(cell)) && prs && d <= 6 {
+			if (isTraversable(cell)) && prs && d <= TraversableDist {
 				res = append(res, coord{j, i})
 			}
 		}
@@ -269,13 +281,13 @@ func getFrighteningMinions(me explorer, wanderers []wanderer, slashers []slasher
 	minions := make([]minion, 0)
 
 	for _, w := range wanderers {
-		if d, p := distFromMe[w.coord]; p && d <= 6 {
+		if d, p := distFromMe[w.coord]; p && d <= RangeWanderers {
 			minions = append(minions, w)
 		}
 	}
 
 	for _, s := range slashers {
-		if d, p := distFromMe[s.coord]; p && d <= 6 {
+		if d, p := distFromMe[s.coord]; p && d <= RangeSlashers {
 			minions = append(minions, s)
 		}
 	}
@@ -432,7 +444,7 @@ func dijkstra(grid grid, source coord, wanderers []wanderer) (map[coord]int, map
 					}
 				}
 
-				alt := dU + 1 + countWanderers*2
+				alt := dU + 1 + countWanderers*FactWanderers
 				checkDst(alt)
 
 				dV, prsV := dist[v]
