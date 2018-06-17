@@ -249,6 +249,7 @@ func getFarestCoord(minions []minion, candidates []coord) coord {
 func getAwayFromMinions(g grid, me explorer, minions []minion, distFromMe map[coord]int) coord {
 	// closestMinion := getClosestMinionCoord(me.coord, minions)
 	empties := getCloseTraversableCells(g, me.coord, distFromMe)
+	log(fmt.Sprintf("empties: %v", empties))
 	return getFarestCoord(minions, empties)
 }
 
@@ -268,13 +269,13 @@ func getFrighteningMinions(me explorer, wanderers []wanderer, slashers []slasher
 	minions := make([]minion, 0)
 
 	for _, w := range wanderers {
-		if distFromMe[w.coord] <= 6 {
+		if d, p := distFromMe[w.coord]; p && d <= 6 {
 			minions = append(minions, w)
 		}
 	}
 
 	for _, s := range slashers {
-		if distFromMe[s.coord] <= 5 {
+		if d, p := distFromMe[s.coord]; p && d <= 6 {
 			minions = append(minions, s)
 		}
 	}
