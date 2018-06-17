@@ -486,12 +486,12 @@ func dijkstra(grid grid, source coord, wanderers []wanderer) (map[coord]int, map
 					}
 				}
 
-				alt := dU + 1 + countWanderers*FactWanderers
+				alt := dU + 1
 				checkDst(alt)
 
 				dV, prsV := dist[v]
 
-				if !prsV || alt < dV {
+				if !prsV || alt < dV || (alt == dV && countWanderers == 0) {
 					dist[v] = alt
 					prev[v] = u
 					q.update(v, alt)
@@ -551,7 +551,7 @@ func contains(s []int, e int) bool {
 
 func existsOtherExplorersInRangeYell(myExplorer explorer, distFromMe map[coord]int, explorers []explorer) bool {
 	for _, e := range explorers {
-		if d, prs := distFromMe[e.coord]; e.id != myExplorer.id && prs && d <= 1 && !alreadyYelled(e) && e.sanity < 200 {
+		if d, prs := distFromMe[e.coord]; e.id != myExplorer.id && prs && d <= 1 && !alreadyYelled(e) && e.sanity < 150 {
 			return true
 		}
 	}
