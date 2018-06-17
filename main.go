@@ -36,6 +36,9 @@ const RangeWanderers = 7
 // 7 => 87
 const RangeSlashers = 6
 
+// RangeSpawnings guard
+const RangeSpawnings = 6
+
 type grid [][]cell
 type cell int
 
@@ -120,6 +123,10 @@ func (w wanderer) getCoord() coord {
 }
 
 func (s slasher) getCoord() coord {
+	return s.coord
+}
+
+func (s spawningMinion) getCoord() coord {
 	return s.coord
 }
 
@@ -301,7 +308,6 @@ func getFarestCoord(minions []minion, candidates []coord) coord {
 }
 
 func getAwayFromMinions(g grid, me explorer, minions []minion, distFromMe map[coord]int) coord {
-	// closestMinion := getClosestMinionCoord(me.coord, minions)
 	empties := getCloseTraversableCells(g, me.coord, distFromMe)
 	log(fmt.Sprintf("empties: %v", empties))
 	return getFarestCoord(minions, empties)
@@ -319,7 +325,7 @@ func getBestExplorer(me explorer, explorers []explorer) coord {
 	return explorers[bestIndex].coord
 }
 
-func getFrighteningMinions(me explorer, wanderers []wanderer, slashers []slasher, distFromMe map[coord]int) []minion {
+func getFrighteningMinions(me explorer, wanderers []wanderer, slashers []slasher, spawningMinions []spawningMinion, distFromMe map[coord]int) []minion {
 	minions := make([]minion, 0)
 
 	for _, w := range wanderers {
@@ -330,6 +336,12 @@ func getFrighteningMinions(me explorer, wanderers []wanderer, slashers []slasher
 
 	for _, s := range slashers {
 		if d, p := distFromMe[s.coord]; p && d <= RangeSlashers {
+			minions = append(minions, s)
+		}
+	}
+
+	for _, s := range spawningMinions {
+		if d, p := distFromMe[s.coord]; p && d <= RangeSpawnings {
 			minions = append(minions, s)
 		}
 	}
@@ -701,7 +713,7 @@ func main() {
 		} else if canUseYell(onGoingYell, onGoingPlan, onGoingLight) && existsOtherExplorersInRangeYell(myExplorer, distFromMe, explorers) {
 			sendYell("YELL IT BABY!")
 		} else {
-			frighteningMinions := getFrighteningMinions(myExplorer, wanderers, slashers, distFromMe)
+			frighteningMinions := getFrighteningMinions(myExplorer, wanderers, slashers, spawningMinions, distFromMe)
 			if len(frighteningMinions) > 0 {
 				awayMinionCoord := getAwayFromMinions(currentGrid, myExplorer, frighteningMinions, distFromMe)
 				sendMove(awayMinionCoord.x, awayMinionCoord.y, "Avoiding minion")
