@@ -449,7 +449,7 @@ func checkDst(d int) {
 	}
 }
 
-func dijkstra(grid grid, source coord, wanderers []wanderer) (map[coord]int, map[coord]coord) {
+func dijkstra(grid grid, source coord) (map[coord]int, map[coord]coord) {
 	dist := make(map[coord]int)
 	dist[source] = 0
 
@@ -479,14 +479,7 @@ func dijkstra(grid grid, source coord, wanderers []wanderer) (map[coord]int, map
 
 			if prsU {
 
-				countWanderers := 0
-				for _, w := range wanderers {
-					if w.coord == v {
-						countWanderers++
-					}
-				}
-
-				alt := dU + 1 + countWanderers*FactWanderers
+				alt := dU + 1
 				checkDst(alt)
 
 				dV, prsV := dist[v]
@@ -690,7 +683,7 @@ func main() {
 			}
 		}
 
-		distFromMe, _ := dijkstra(currentGrid, myExplorer.coord, wanderers)
+		distFromMe, _ := dijkstra(currentGrid, myExplorer.coord)
 		// log("distances: ", distFromMe)
 		// log("previous: ", prevFromMe)
 
