@@ -547,7 +547,7 @@ func contains(s []int, e int) bool {
 
 func existsOtherExplorersInRangeYell(myExplorer explorer, distFromMe map[coord]int, explorers []explorer) bool {
 	for _, e := range explorers {
-		if d, prs := distFromMe[e.coord]; e.id != myExplorer.id && prs && d <= 1 && !alreadyYelled(e) {
+		if d, prs := distFromMe[e.coord]; e.id != myExplorer.id && prs && d <= 1 && !alreadyYelled(e) && e.sanity < 200 {
 			return true
 		}
 	}
@@ -661,7 +661,7 @@ func main() {
 
 		// update yelled
 		for _, y := range yells {
-			if y.by == myExplorer.id && contains(yelled, y.on) {
+			if y.by == myExplorer.id && !contains(yelled, y.on) {
 				yelled = append(yelled, y.on)
 			}
 		}
