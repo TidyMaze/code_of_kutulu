@@ -2,7 +2,9 @@ package main
 
 import (
 	"bufio"
+	"container/heap"
 	"fmt"
+	"math"
 	"os"
 )
 
@@ -83,22 +85,6 @@ type loggable interface {
 	String() string
 }
 
-func (e explorer) String() string {
-	return fmt.Sprintf("explorer %d %d %d", e.id, e.coord.x, e.coord.y)
-}
-
-func (w wanderer) String() string {
-	return fmt.Sprintf("wanderer %d %d %d %d %d %d", w.id, w.coord.x, w.coord.y, w.state, w.target, w.recallTime)
-}
-
-func (s spawningMinion) String() string {
-	return fmt.Sprintf("spawningMinion %d %d %d %d %d %d", s.id, s.coord.x, s.coord.y, s.state, s.target, s.spawnTime)
-}
-
-func (s slasher) String() string {
-	return fmt.Sprintf("slasher %d %d %d %d %d %d", s.id, s.coord.x, s.coord.y, s.state, s.target, s.changeStateTime)
-}
-
 const (
 	entityTypeExplorer      = "EXPLORER"
 	entityTypeWanderer      = "WANDERER"
@@ -128,8 +114,8 @@ func printGrid(g grid) {
 	log(res)
 }
 
-func log(mes string) {
-	fmt.Fprintln(os.Stderr, mes)
+func log(mes ...interface{}) {
+	fmt.Fprintln(os.Stderr, mes...)
 }
 
 func cellToString(c cell) string {
@@ -193,7 +179,7 @@ func abs(n int) int {
 	return n
 }
 
-func dist(from coord, to coord) int {
+func manhattanDist(from coord, to coord) int {
 	return abs(to.x-from.x) + abs(to.y-from.y)
 }
 
@@ -204,7 +190,7 @@ func getClosestMinionCoord(from coord, minions []minion) coord {
 	bestDistance := -1
 	bestCoord := coord{0, 0}
 	for _, m := range minions {
-		d := dist(m.getCoord(), from)
+		d := manhattanDist(m.getCoord(), from)
 		if bestDistance == -1 || d < bestDistance {
 			bestDistance = d
 			bestCoord = m.getCoord()
@@ -226,11 +212,11 @@ func getEmptyCells(g grid) []coord {
 	return res
 }
 
-func getCloseTraversableCells(g grid, from coord) []coord {
+func getCloseTraversableCells(g grid, from coord, distFromMe map[coord]int) []coord {
 	res := make([]coord, 0)
 	for i, line := range g {
 		for j, cell := range line {
-			if (cell == cellEmpty || cell == cellSpawn || cell == cellShelter) && dist(from, coord{j, i}) <= 1 {
+			if (isTraversable(cell)) && distFromMe[coord{j, i}] <= 3 {
 				res = append(res, coord{j, i})
 			}
 		}
@@ -247,7 +233,7 @@ func getFarestCoord(minions []minion, candidates []coord) coord {
 	for i, c := range candidates {
 		sum := 0
 		for _, m := range minions {
-			sum += dist(m.getCoord(), c)
+			sum += manhattanDist(m.getCoord(), c)
 		}
 
 		if bestDistance == -1 || sum > bestDistance {
@@ -258,9 +244,9 @@ func getFarestCoord(minions []minion, candidates []coord) coord {
 	return candidates[bestIndex]
 }
 
-func getAwayFromMinions(g grid, me explorer, minions []minion) coord {
+func getAwayFromMinions(g grid, me explorer, minions []minion, distFromMe map[coord]int) coord {
 	// closestMinion := getClosestMinionCoord(me.coord, minions)
-	empties := getCloseTraversableCells(g, me.coord)
+	empties := getCloseTraversableCells(g, me.coord, distFromMe)
 	return getFarestCoord(minions, empties)
 }
 
@@ -276,22 +262,171 @@ func getBestExplorer(me explorer, explorers []explorer) coord {
 	return explorers[bestIndex].coord
 }
 
-func getFrighteningMinions(me explorer, wanderers []wanderer, slashers []slasher) []minion {
+func getFrighteningMinions(me explorer, wanderers []wanderer, slashers []slasher, distFromMe map[coord]int) []minion {
 	minions := make([]minion, 0)
 
 	for _, w := range wanderers {
-		if dist(w.coord, me.coord) <= 6 {
+		if distFromMe[w.coord] <= 6 {
 			minions = append(minions, w)
 		}
 	}
 
 	for _, s := range slashers {
-		if dist(s.coord, me.coord) <= 5 {
+		if distFromMe[s.coord] <= 5 {
 			minions = append(minions, s)
 		}
 	}
 
 	return minions
+}
+
+// Item : heap item
+type Item struct {
+	value    interface{}
+	priority int
+	index    int
+}
+
+// A PriorityQueue implements heap.Interface and holds Items.
+type PriorityQueue []*Item
+
+func (pq PriorityQueue) Len() int { return len(pq) }
+
+func (pq PriorityQueue) Less(i, j int) bool {
+	// We want Pop to give us the highest, not lowest, priority so we use greater than here.
+	return pq[i].priority < pq[j].priority
+}
+
+func (pq PriorityQueue) Swap(i, j int) {
+	pq[i], pq[j] = pq[j], pq[i]
+	pq[i].index = i
+	pq[j].index = j
+}
+
+// Push add item to heap
+func (pq *PriorityQueue) Push(x interface{}) {
+	n := len(*pq)
+	item := x.(*Item)
+	item.index = n
+	*pq = append(*pq, item)
+}
+
+// Pop get first item by priority
+func (pq *PriorityQueue) Pop() interface{} {
+	old := *pq
+	n := len(old)
+	item := old[n-1]
+	item.index = -1 // for safety
+	*pq = old[0 : n-1]
+	return item
+}
+
+func (pq *PriorityQueue) update(value coord, priority int) {
+	for _, item := range *pq {
+		if item.value == value {
+			item.priority = priority
+			heap.Fix(pq, item.index)
+			return
+		}
+	}
+}
+
+func demoHeap() {
+	items := map[coord]int{
+		coord{0, 0}: 3, coord{1, 1}: 2, coord{2, 2}: 4,
+	}
+
+	pq := make(PriorityQueue, len(items))
+	i := 0
+	for value, priority := range items {
+		fmt.Println("Inserting ", value)
+		pq[i] = &Item{
+			value:    value,
+			priority: priority,
+			index:    i,
+		}
+		i++
+	}
+	heap.Init(&pq)
+
+	for pq.Len() > 0 {
+		item := heap.Pop(&pq).(*Item)
+		fmt.Printf("%.2d:%+v", item.priority, item.value.(coord))
+	}
+}
+
+func isTraversable(cell cell) bool {
+	return cell == cellEmpty || cell == cellSpawn || cell == cellShelter
+}
+
+func getTraversableCells(grid grid) []coord {
+	coords := make([]coord, 0)
+	for i, line := range grid {
+		for j, cell := range line {
+			if isTraversable(cell) {
+				coords = append(coords, coord{j, i})
+			}
+		}
+	}
+	return coords
+}
+
+func neighbors(grid grid, from coord) []coord {
+	offsets := [4]coord{
+		{0, -1},
+		{0, 1},
+		{-1, 0},
+		{1, 0},
+	}
+
+	res := make([]coord, 4)
+	for _, o := range offsets {
+		targetCoord := coord{from.x + o.x, from.y + o.y}
+		targetCell := grid.getCell(targetCoord)
+		if isTraversable(targetCell) {
+			res = append(res, targetCoord)
+		}
+	}
+	return res
+}
+
+func (g grid) getCell(at coord) cell {
+	return g[at.y][at.x]
+}
+
+func dijkstra(grid grid, source coord) (map[coord]int, map[coord]coord) {
+	dist := make(map[coord]int)
+	dist[source] = 0
+
+	prev := make(map[coord]coord)
+
+	q := make(PriorityQueue, 0)
+	heap.Init(&q)
+
+	// add all traversable cells queue
+	for _, v := range getTraversableCells(grid) {
+		if v != source {
+			dist[v] = math.MaxInt64
+		}
+		heap.Push(&q, &Item{
+			value:    v,
+			priority: dist[v],
+		})
+	}
+
+	for len(q) > 0 {
+		u := heap.Pop(&q).(*Item).value.(coord)
+		for _, v := range neighbors(grid, u) {
+			alt := dist[u] + 1
+			if alt < dist[v] {
+				dist[v] = alt
+				prev[v] = u
+				q.update(v, alt)
+			}
+		}
+	}
+
+	return dist, prev
 }
 
 func main() {
@@ -368,31 +503,39 @@ func main() {
 			}
 		}
 
+		log("explorers")
 		for _, e := range explorers {
-			log(e.String())
+			log(e)
 		}
 
+		log("wanderers")
 		for _, w := range wanderers {
-			log(w.String())
+			log(w)
 		}
 
+		log("spawning")
 		for _, s := range spawningMinions {
-			log(s.String())
+			log(s)
 		}
 
+		log("slashers")
 		for _, s := range slashers {
-			log(s.String())
+			log(s)
 		}
 
 		myExplorer := explorers[0]
 
 		log("Me :")
-		log(myExplorer.String())
+		log(myExplorer)
 
-		frighteningMinions := getFrighteningMinions(myExplorer, wanderers, slashers)
+		distFromMe, prevFromMe := dijkstra(currentGrid, myExplorer.coord)
+		log("distances: ", distFromMe)
+		log("previous: ", prevFromMe)
+
+		frighteningMinions := getFrighteningMinions(myExplorer, wanderers, slashers, distFromMe)
 
 		if len(frighteningMinions) > 0 {
-			awayMinionCoord := getAwayFromMinions(currentGrid, myExplorer, frighteningMinions)
+			awayMinionCoord := getAwayFromMinions(currentGrid, myExplorer, frighteningMinions, distFromMe)
 			sendMove(awayMinionCoord.x, awayMinionCoord.y, "Avoiding minion")
 		} else if len(explorers) > 1 {
 			best := getBestExplorer(myExplorer, explorers)
