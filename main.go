@@ -27,6 +27,9 @@ const TraversableDist = 5
 const RangeWanderers = 7
 
 // RangeSlashers guard
+// 5 => 117
+// 6 => 14
+// 7 => 87
 const RangeSlashers = 6
 
 type grid [][]cell
