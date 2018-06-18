@@ -37,7 +37,16 @@ const RangeWanderers = 7
 const RangeSlashers = 6
 
 // RangeSpawnings guard
-const RangeSpawnings = 6
+// 6 => 178
+// 7 => 150
+// 8 => 175
+const RangeSpawnings = 7
+
+// MinSanityYell below : allow yell
+// 200 => 150
+// 220 => 135
+// 240 => 170
+const MinSanityYell = 220
 
 type grid [][]cell
 type cell int
@@ -563,7 +572,7 @@ func contains(s []int, e int) bool {
 
 func existsOtherExplorersInRangeYell(myExplorer explorer, distFromMe map[coord]int, explorers []explorer) bool {
 	for _, e := range explorers {
-		if d, prs := distFromMe[e.coord]; e.id != myExplorer.id && prs && d <= 1 && !alreadyYelled(e) && e.sanity < 150 {
+		if d, prs := distFromMe[e.coord]; e.id != myExplorer.id && prs && d <= 1 && !alreadyYelled(e) && e.sanity < MinSanityYell {
 			return true
 		}
 	}
