@@ -253,23 +253,6 @@ func manhattanDist(from coord, to coord) int {
 	return abs(to.x-from.x) + abs(to.y-from.y)
 }
 
-func getClosestMinionCoord(from coord, minions []minion) coord {
-	if len(minions) == 0 {
-		panic("cannot find closest minion if there is no minion")
-	}
-	bestDistance := -1
-	bestCoord := coord{0, 0}
-	for _, m := range minions {
-		d := manhattanDist(m.getCoord(), from)
-		if bestDistance == -1 || d < bestDistance {
-			bestDistance = d
-			bestCoord = m.getCoord()
-		}
-	}
-
-	return bestCoord
-}
-
 func getEmptyCells(g grid) []coord {
 	res := make([]coord, 0)
 	for i, line := range g {
@@ -295,21 +278,30 @@ func getCloseTraversableCells(g grid, from coord, distFromMe map[coord]int) []co
 	return res
 }
 
-func getFarestCoord(minions []minion, candidates []coord) coord {
+func getFarestCoord(g grid, minions []minion, candidates []coord) coord {
 	if len(candidates) == 0 {
 		panic("no candidates for farest coord")
 	}
 	bestIndex := -1
 	bestDistance := -1
 	for i, c := range candidates {
+
+		dist, _ := dijkstraRaw(g, c)
 		sum := 0
+		count := 0
 		for _, m := range minions {
-			sum += manhattanDist(m.getCoord(), c)
+			thisDist, prs := dist[m.getCoord()]
+			if prs {
+				sum += thisDist
+				count++
+			}
 		}
 
-		if bestDistance == -1 || sum > bestDistance {
+		score := sum / count
+
+		if bestDistance == -1 || score > bestDistance {
 			bestIndex = i
-			bestDistance = sum
+			bestDistance = score
 			log("Farest : ", candidates[bestIndex], " with distance ", bestDistance)
 		}
 	}
@@ -319,7 +311,7 @@ func getFarestCoord(minions []minion, candidates []coord) coord {
 func getAwayFromMinions(g grid, me explorer, minions []minion, distFromMe map[coord]int) coord {
 	empties := getCloseTraversableCells(g, me.coord, distFromMe)
 	log(fmt.Sprintf("empties: %v", empties))
-	return getFarestCoord(minions, empties)
+	return getFarestCoord(g, minions, empties)
 }
 
 func getBestExplorer(me explorer, explorers []explorer) coord {
@@ -473,13 +465,9 @@ func checkDst(d int) {
 func dijkstra(grid grid, source coord, wanderers []wanderer) (map[coord]int, map[coord]coord) {
 	dist := make(map[coord]int)
 	dist[source] = 0
-
 	prev := make(map[coord]coord)
-
 	q := make(PriorityQueue, 0)
 	heap.Init(&q)
-
-	// add all traversable cells queue
 	for _, v := range getTraversableCells(grid) {
 		dv, prsDv := dist[v]
 		checkDst(dv)
@@ -492,26 +480,20 @@ func dijkstra(grid grid, source coord, wanderers []wanderer) (map[coord]int, map
 			priority: priority,
 		})
 	}
-
 	for len(q) > 0 {
 		u := heap.Pop(&q).(*Item).value.(coord)
 		for _, v := range neighbors(grid, u) {
 			dU, prsU := dist[u]
-
 			if prsU {
-
 				countWanderers := 0
 				for _, w := range wanderers {
 					if w.coord == v {
 						countWanderers++
 					}
 				}
-
 				alt := dU + 1
 				checkDst(alt)
-
 				dV, prsV := dist[v]
-
 				if !prsV || alt < dV || (alt == dV && countWanderers == 0) {
 					dist[v] = alt
 					prev[v] = u
@@ -520,7 +502,43 @@ func dijkstra(grid grid, source coord, wanderers []wanderer) (map[coord]int, map
 			}
 		}
 	}
+	return dist, prev
+}
 
+func dijkstraRaw(grid grid, source coord) (map[coord]int, map[coord]coord) {
+	dist := make(map[coord]int)
+	dist[source] = 0
+	prev := make(map[coord]coord)
+	q := make(PriorityQueue, 0)
+	heap.Init(&q)
+	for _, v := range getTraversableCells(grid) {
+		dv, prsDv := dist[v]
+		checkDst(dv)
+		priority := math.MaxInt64
+		if prsDv {
+			priority = dv
+		}
+		heap.Push(&q, &Item{
+			value:    v,
+			priority: priority,
+		})
+	}
+	for len(q) > 0 {
+		u := heap.Pop(&q).(*Item).value.(coord)
+		for _, v := range neighbors(grid, u) {
+			dU, prsU := dist[u]
+			if prsU {
+				alt := dU + 1
+				checkDst(alt)
+				dV, prsV := dist[v]
+				if !prsV || alt < dV {
+					dist[v] = alt
+					prev[v] = u
+					q.update(v, alt)
+				}
+			}
+		}
+	}
 	return dist, prev
 }
 
