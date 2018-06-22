@@ -12,17 +12,10 @@ import (
 	"os"
 )
 
-// FactWanderers multiplier
-// 1 => 137
-// 2 => 105
-// 3 => 220
-const FactWanderers = 2
-
 // TraversableDist how far we search available cells
-// 4 => 230
-// 5 => 58
-// 6 => 105
-const TraversableDist = 5
+// 3 => 168
+// 4 => 63
+const TraversableDist = 4
 
 // RangeWanderers guard
 // 5 => 191
@@ -47,6 +40,23 @@ const RangeSpawnings = 7
 // 220 => 135
 // 240 => 170
 const MinSanityYell = 220
+
+// LightDistance below : allow light
+const LightDistance = 10
+
+// 190 => 63
+const RequiredHealMe = 190
+
+// 215 => 126
+// 225 => 60
+// 236 => 63
+const RequiredHealOther = 225
+
+// 60 => 75
+// 80 => 68
+// 100 => 63
+// 220 => 43
+const PlanForceUse = 200
 
 type grid [][]cell
 type cell int
@@ -283,21 +293,22 @@ func getFarestCoord(g grid, minions []minion, candidates []coord) coord {
 		panic("no candidates for farest coord")
 	}
 	bestIndex := -1
-	bestDistance := -1
+	bestDistance := -1.0
 	for i, c := range candidates {
 
 		dist, _ := dijkstraRaw(g, c)
-		sum := 0
+		sum := 0.0
 		count := 0
 		for _, m := range minions {
 			thisDist, prs := dist[m.getCoord()]
 			if prs {
-				sum += thisDist
+				checkDst(thisDist)
+				sum += float64(thisDist)
 				count++
 			}
 		}
 
-		score := sum / count
+		score := sum / float64(count)
 
 		if bestDistance == -1 || score > bestDistance {
 			bestIndex = i
@@ -554,7 +565,16 @@ func canUseYell(onGoingYell bool, onGoingPlan bool, onGoingLight bool) bool {
 
 func existsLightTarget(distFromMe map[coord]int, wanderers []wanderer) bool {
 	for _, w := range wanderers {
-		if d, prs := distFromMe[w.coord]; prs && d <= 5 {
+		if d, prs := distFromMe[w.coord]; prs && d <= LightDistance {
+			return true
+		}
+	}
+	return false
+}
+
+func wanderersVeryClose(distFromMe map[coord]int, wanderers []wanderer) bool {
+	for _, w := range wanderers {
+		if d, prs := distFromMe[w.coord]; prs && d <= 2 {
 			return true
 		}
 	}
@@ -562,11 +582,11 @@ func existsLightTarget(distFromMe map[coord]int, wanderers []wanderer) bool {
 }
 
 func existsOtherExplorersToHeal(myExplorer explorer, distFromMe map[coord]int, explorers []explorer) bool {
-	if myExplorer.sanity > 250-60 {
+	if myExplorer.sanity > RequiredHealMe {
 		return false
 	}
 	for _, e := range explorers {
-		if d, prs := distFromMe[e.coord]; e.id != myExplorer.id && prs && d <= 2 && e.sanity <= (250-15) {
+		if d, prs := distFromMe[e.coord]; e.id != myExplorer.id && prs && d <= 2 && e.sanity <= RequiredHealOther {
 			return true
 		}
 	}
@@ -733,9 +753,9 @@ func main() {
 		// log("distances: ", distFromMe)
 		// log("previous: ", prevFromMe)
 
-		if canUseLight(myExplorer, onGoingYell, onGoingPlan, onGoingLight) && existsLightTarget(distFromMe, wanderers) {
+		if canUseLight(myExplorer, onGoingYell, onGoingPlan, onGoingLight) && !wanderersVeryClose(distFromMe, wanderers) && existsLightTarget(distFromMe, wanderers) {
 			sendLight("LIGTH IT BABY!")
-		} else if canUsePlan(myExplorer, onGoingYell, onGoingPlan, onGoingLight) && (existsOtherExplorersToHeal(myExplorer, distFromMe, explorers) || myExplorer.sanity < 100) {
+		} else if canUsePlan(myExplorer, onGoingYell, onGoingPlan, onGoingLight) && (existsOtherExplorersToHeal(myExplorer, distFromMe, explorers) || myExplorer.sanity < PlanForceUse) {
 			sendPlan("PLAN IT BABY!")
 		} else if canUseYell(onGoingYell, onGoingPlan, onGoingLight) && existsOtherExplorersInRangeYell(myExplorer, distFromMe, explorers) {
 			sendYell("YELL IT BABY!")
