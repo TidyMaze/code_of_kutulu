@@ -10,12 +10,13 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"sort"
 )
 
 // TraversableDist how far we search available cells
 // 3 => 168
 // 4 => 63
-const TraversableDist = 4
+const TraversableDist = 7
 
 // RangeWanderers guard
 // 5 => 191
@@ -42,7 +43,10 @@ const RangeSpawnings = 7
 const MinSanityYell = 220
 
 // LightDistance below : allow light
-const LightDistance = 10
+// 10 => 39
+// 12 => 34
+// 14 => 29
+const LightDistance = 16
 
 // 190 => 63
 const RequiredHealMe = 190
@@ -313,13 +317,14 @@ func getFarestCoord(g grid, minions []minion, candidates []coord) coord {
 		if bestDistance == -1 || score > bestDistance {
 			bestIndex = i
 			bestDistance = score
-			log("Farest : ", candidates[bestIndex], " with distance ", bestDistance)
+			// log("Farest : ", candidates[bestIndex], " with distance ", bestDistance)
 		}
 	}
+	log("End getFarestCoord loop")
 	return candidates[bestIndex]
 }
 
-func getAwayFromMinions(g grid, me explorer, minions []minion, distFromMe map[coord]int) coord {
+func getAwayFromMinions(g grid, me explorer, minions []minion, distFromMe map[coord]int, prevFromMe map[coord]coord, distFromMeRaw map[coord]int, prevFromMeRaw map[coord]coord) coord {
 	empties := getCloseTraversableCells(g, me.coord, distFromMe)
 	log(fmt.Sprintf("empties: %v", empties))
 	return getFarestCoord(g, minions, empties)
@@ -337,24 +342,59 @@ func getBestExplorer(me explorer, explorers []explorer) coord {
 	return explorers[bestIndex].coord
 }
 
+type Scored struct {
+	item  minion
+	score int
+}
+
+type ByDist []Scored
+
+func (a ByDist) Len() int           { return len(a) }
+func (a ByDist) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByDist) Less(i, j int) bool { return a[i].score < a[j].score }
+
 func getFrighteningMinions(me explorer, wanderers []wanderer, slashers []slasher, spawningMinions []spawningMinion, distFromMe map[coord]int) []minion {
+	MaxTake := 3
+
 	minions := make([]minion, 0)
+	allScored := make([]Scored, 0)
+
+	log("wanderers")
+	log(wanderers)
 
 	for _, w := range wanderers {
-		if d, p := distFromMe[w.coord]; p && d <= RangeWanderers {
-			minions = append(minions, w)
+		if d, p := distFromMe[w.coord]; p {
+			new := Scored{w, d}
+			allScored = append(allScored, new)
 		}
 	}
 
 	for _, s := range slashers {
-		if d, p := distFromMe[s.coord]; p && d <= RangeSlashers {
-			minions = append(minions, s)
+		if d, p := distFromMe[s.coord]; p {
+			new := Scored{s, d}
+			allScored = append(allScored, new)
 		}
 	}
 
-	for _, s := range spawningMinions {
-		if d, p := distFromMe[s.coord]; p && d <= RangeSpawnings {
-			minions = append(minions, s)
+	// for _, s := range spawningMinions {
+	// 	if d, p := distFromMe[s.coord]; p && d <= RangeSpawnings {
+	// 		minions = append(minions, s)
+	// 	}
+	// }
+
+	log("all scored:")
+	log(allScored)
+
+	sort.Sort(ByDist(allScored))
+
+	log("all scored:")
+	log(allScored)
+
+	for _, m := range allScored {
+		if len(minions) < MaxTake {
+			log("appending")
+			log(m.item)
+			minions = append(minions, m.item)
 		}
 	}
 
@@ -502,10 +542,11 @@ func dijkstra(grid grid, source coord, wanderers []wanderer) (map[coord]int, map
 						countWanderers++
 					}
 				}
+
 				alt := dU + 1
 				checkDst(alt)
 				dV, prsV := dist[v]
-				if !prsV || alt < dV || (alt == dV && countWanderers == 0) {
+				if countWanderers == 0 && (!prsV || alt < dV) {
 					dist[v] = alt
 					prev[v] = u
 					q.update(v, alt)
@@ -749,21 +790,40 @@ func main() {
 			}
 		}
 
-		distFromMe, _ := dijkstra(currentGrid, myExplorer.coord, wanderers)
+		distFromMe, prevFromMe := dijkstra(currentGrid, myExplorer.coord, wanderers)
+		distFromMeRaw, prevFromMeRaw := dijkstraRaw(currentGrid, myExplorer.coord)
 		// log("distances: ", distFromMe)
 		// log("previous: ", prevFromMe)
+		//
+		// log("distances raw: ", distFromMeRaw)
+		// log("previous raw: ", prevFromMeRaw)
 
-		if canUseLight(myExplorer, onGoingYell, onGoingPlan, onGoingLight) && !wanderersVeryClose(distFromMe, wanderers) && existsLightTarget(distFromMe, wanderers) {
+		if canUseLight(myExplorer, onGoingYell, onGoingPlan, onGoingLight) && !wanderersVeryClose(distFromMeRaw, wanderers) && existsLightTarget(distFromMeRaw, wanderers) {
 			sendLight("LIGTH IT BABY!")
-		} else if canUsePlan(myExplorer, onGoingYell, onGoingPlan, onGoingLight) && (existsOtherExplorersToHeal(myExplorer, distFromMe, explorers) || myExplorer.sanity < PlanForceUse) {
+		} else if canUsePlan(myExplorer, onGoingYell, onGoingPlan, onGoingLight) && (existsOtherExplorersToHeal(myExplorer, distFromMeRaw, explorers) || myExplorer.sanity < PlanForceUse) {
 			sendPlan("PLAN IT BABY!")
-		} else if canUseYell(onGoingYell, onGoingPlan, onGoingLight) && existsOtherExplorersInRangeYell(myExplorer, distFromMe, explorers) {
+		} else if canUseYell(onGoingYell, onGoingPlan, onGoingLight) && existsOtherExplorersInRangeYell(myExplorer, distFromMeRaw, explorers) {
 			sendYell("YELL IT BABY!")
 		} else {
-			frighteningMinions := getFrighteningMinions(myExplorer, wanderers, slashers, spawningMinions, distFromMe)
+			frighteningMinions := getFrighteningMinions(myExplorer, wanderers, slashers, spawningMinions, distFromMeRaw)
 			if len(frighteningMinions) > 0 {
-				awayMinionCoord := getAwayFromMinions(currentGrid, myExplorer, frighteningMinions, distFromMe)
-				sendMove(awayMinionCoord.x, awayMinionCoord.y, "Avoiding minion")
+				log("Danger:")
+				log(frighteningMinions)
+				log("/Danger")
+				awayMinionCoord := getAwayFromMinions(currentGrid, myExplorer, frighteningMinions, distFromMe, prevFromMe, distFromMeRaw, prevFromMeRaw)
+
+				firstOne := awayMinionCoord
+
+				prev, isPrev := prevFromMe[awayMinionCoord]
+				for currentStep := awayMinionCoord; isPrev && prev != myExplorer.coord; {
+					firstOne = currentStep
+					prev, isPrev = prevFromMe[currentStep]
+					currentStep = prev
+
+				}
+
+				nextMove := firstOne
+				sendMove(nextMove.x, nextMove.y, "Avoiding minion")
 			} else if len(explorers) > 1 {
 				best := getBestExplorer(myExplorer, explorers)
 				sendMove(best.x, best.y, "Following leader")
