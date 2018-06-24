@@ -56,11 +56,8 @@ const RequiredHealMe = 190
 // 236 => 63
 const RequiredHealOther = 225
 
-// 60 => 75
-// 80 => 68
-// 100 => 63
-// 220 => 43
-const PlanForceUse = 200
+// 180 => 5
+const PlanForceUse = 180
 
 type grid [][]cell
 type cell int
@@ -359,9 +356,6 @@ func getFrighteningMinions(me explorer, wanderers []wanderer, slashers []slasher
 	minions := make([]minion, 0)
 	allScored := make([]Scored, 0)
 
-	log("wanderers")
-	log(wanderers)
-
 	for _, w := range wanderers {
 		if d, p := distFromMe[w.coord]; p {
 			new := Scored{w, d}
@@ -382,18 +376,12 @@ func getFrighteningMinions(me explorer, wanderers []wanderer, slashers []slasher
 	// 	}
 	// }
 
-	log("all scored:")
-	log(allScored)
-
 	sort.Sort(ByDist(allScored))
-
-	log("all scored:")
-	log(allScored)
+	log(fmt.Sprintf("all scored: %+v", allScored))
 
 	for _, m := range allScored {
 		if len(minions) < MaxTake {
-			log("appending")
-			log(m.item)
+			log(fmt.Sprintf("appending %+v", m.item))
 			minions = append(minions, m.item)
 		}
 	}
@@ -738,30 +726,14 @@ func main() {
 			}
 		}
 
-		log("explorers")
-		for _, e := range explorers {
-			log(e)
-		}
-
-		log("wanderers")
-		for _, w := range wanderers {
-			log(w)
-		}
-
-		log("spawning")
-		for _, s := range spawningMinions {
-			log(s)
-		}
-
-		log("slashers")
-		for _, s := range slashers {
-			log(s)
-		}
+		log(fmt.Sprintf("explorers %+v", explorers))
+		log(fmt.Sprintf("wanderers %+v", wanderers))
+		log(fmt.Sprintf("spawning %+v", spawningMinions))
+		log(fmt.Sprintf("slashers %+v", slashers))
 
 		myExplorer := explorers[0]
 
-		log("Me :")
-		log(myExplorer)
+		log(fmt.Sprintf("Me: %+v", myExplorer))
 
 		// update yelled
 		for _, y := range yells {
@@ -807,22 +779,27 @@ func main() {
 		} else {
 			frighteningMinions := getFrighteningMinions(myExplorer, wanderers, slashers, spawningMinions, distFromMeRaw)
 			if len(frighteningMinions) > 0 {
-				log("Danger:")
-				log(frighteningMinions)
-				log("/Danger")
+				log(fmt.Sprintf("Danger: %+v", frighteningMinions))
 				awayMinionCoord := getAwayFromMinions(currentGrid, myExplorer, frighteningMinions, distFromMe, prevFromMe, distFromMeRaw, prevFromMeRaw)
+
+				log(fmt.Sprintf("target is %+v", awayMinionCoord))
 
 				firstOne := awayMinionCoord
 
+				path := make([]coord, 0)
+
 				prev, isPrev := prevFromMe[awayMinionCoord]
 				for currentStep := awayMinionCoord; isPrev && prev != myExplorer.coord; {
+					path = append(path, currentStep)
 					firstOne = currentStep
 					prev, isPrev = prevFromMe[currentStep]
 					currentStep = prev
-
 				}
 
+				log(fmt.Sprintf("Path (from last to first): %+v", path))
+
 				nextMove := firstOne
+				log(fmt.Sprintf("immediate move: %+v", nextMove))
 				sendMove(nextMove.x, nextMove.y, "Avoiding minion")
 			} else if len(explorers) > 1 {
 				best := getBestExplorer(myExplorer, explorers)
