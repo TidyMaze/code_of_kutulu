@@ -276,16 +276,40 @@ func getEmptyCells(g grid) []coord {
 	return res
 }
 
-func getCloseTraversableCells(g grid, from coord, distFromMe map[coord]int) []coord {
+func minionInCoord(minions []minion, coord coord) bool {
+	for _, m := range minions {
+		if m.getCoord() == coord {
+			return true
+		}
+	}
+	return false
+}
+
+func getCloseTraversableCells(g grid, from coord, distFromMe map[coord]int, minions []minion) []coord {
 	res := make([]coord, 0)
 	for i, line := range g {
 		for j, cell := range line {
-			d, prs := distFromMe[coord{j, i}]
-			if (isTraversable(cell)) && prs && d <= TraversableDist {
-				res = append(res, coord{j, i})
+			c := coord{j, i}
+			d, prs := distFromMe[c]
+			if (isTraversable(cell)) && prs && d <= TraversableDist && !minionInCoord(minions, c) {
+				res = append(res, c)
 			}
 		}
 	}
+
+	if len(res) == 0 {
+		log("WOOPS NOTHING")
+		for i, line := range g {
+			for j, cell := range line {
+				c := coord{j, i}
+				d, prs := distFromMe[c]
+				if (isTraversable(cell)) && prs && d <= TraversableDist {
+					res = append(res, c)
+				}
+			}
+		}
+	}
+
 	return res
 }
 
@@ -314,15 +338,14 @@ func getFarestCoord(g grid, minions []minion, candidates []coord) coord {
 		if bestDistance == -1 || score > bestDistance {
 			bestIndex = i
 			bestDistance = score
-			// log("Farest : ", candidates[bestIndex], " with distance ", bestDistance)
+			log("Farest : ", candidates[bestIndex], " with distance ", bestDistance)
 		}
 	}
-	log("End getFarestCoord loop")
 	return candidates[bestIndex]
 }
 
 func getAwayFromMinions(g grid, me explorer, minions []minion, distFromMe map[coord]int, prevFromMe map[coord]coord, distFromMeRaw map[coord]int, prevFromMeRaw map[coord]coord) coord {
-	empties := getCloseTraversableCells(g, me.coord, distFromMe)
+	empties := getCloseTraversableCells(g, me.coord, distFromMe, minions)
 	log(fmt.Sprintf("empties: %v", empties))
 	return getFarestCoord(g, minions, empties)
 }
@@ -377,11 +400,10 @@ func getFrighteningMinions(me explorer, wanderers []wanderer, slashers []slasher
 	// }
 
 	sort.Sort(ByDist(allScored))
-	log(fmt.Sprintf("all scored: %+v", allScored))
+	log(fmt.Sprintf("all scored: %v", allScored))
 
 	for _, m := range allScored {
 		if len(minions) < MaxTake {
-			log(fmt.Sprintf("appending %+v", m.item))
 			minions = append(minions, m.item)
 		}
 	}
@@ -445,7 +467,7 @@ func logQueue(pq PriorityQueue) {
 		if i >= 5 {
 			return
 		}
-		log(fmt.Sprintf("%.2d:%+v", item.priority, item.value.(coord)))
+		log(fmt.Sprintf("%.2d:%v", item.priority, item.value.(coord)))
 	}
 }
 
@@ -490,7 +512,7 @@ func insideGrid(g grid, c coord) bool {
 
 func (g grid) getCell(at coord) cell {
 	if !insideGrid(g, at) {
-		panic(fmt.Sprintf("Coord %+v outside grid", at))
+		panic(fmt.Sprintf("Coord %v outside grid", at))
 	}
 	return g[at.y][at.x]
 }
@@ -726,14 +748,14 @@ func main() {
 			}
 		}
 
-		log(fmt.Sprintf("explorers %+v", explorers))
-		log(fmt.Sprintf("wanderers %+v", wanderers))
-		log(fmt.Sprintf("spawning %+v", spawningMinions))
-		log(fmt.Sprintf("slashers %+v", slashers))
+		log(fmt.Sprintf("explorers %v", explorers))
+		log(fmt.Sprintf("wanderers %v", wanderers))
+		log(fmt.Sprintf("spawning %v", spawningMinions))
+		log(fmt.Sprintf("slashers %v", slashers))
 
 		myExplorer := explorers[0]
 
-		log(fmt.Sprintf("Me: %+v", myExplorer))
+		log(fmt.Sprintf("Me: %v", myExplorer))
 
 		// update yelled
 		for _, y := range yells {
@@ -772,17 +794,17 @@ func main() {
 
 		if canUseLight(myExplorer, onGoingYell, onGoingPlan, onGoingLight) && !wanderersVeryClose(distFromMeRaw, wanderers) && existsLightTarget(distFromMeRaw, wanderers) {
 			sendLight("LIGTH IT BABY!")
-		} else if canUsePlan(myExplorer, onGoingYell, onGoingPlan, onGoingLight) && (existsOtherExplorersToHeal(myExplorer, distFromMeRaw, explorers) || myExplorer.sanity < PlanForceUse) {
+		} else if canUsePlan(myExplorer, onGoingYell, onGoingPlan, onGoingLight) && !wanderersVeryClose(distFromMeRaw, wanderers) && (existsOtherExplorersToHeal(myExplorer, distFromMeRaw, explorers) || myExplorer.sanity < PlanForceUse) {
 			sendPlan("PLAN IT BABY!")
-		} else if canUseYell(onGoingYell, onGoingPlan, onGoingLight) && existsOtherExplorersInRangeYell(myExplorer, distFromMeRaw, explorers) {
+		} else if canUseYell(onGoingYell, onGoingPlan, onGoingLight) && !wanderersVeryClose(distFromMeRaw, wanderers) && existsOtherExplorersInRangeYell(myExplorer, distFromMeRaw, explorers) {
 			sendYell("YELL IT BABY!")
 		} else {
 			frighteningMinions := getFrighteningMinions(myExplorer, wanderers, slashers, spawningMinions, distFromMeRaw)
 			if len(frighteningMinions) > 0 {
-				log(fmt.Sprintf("Danger: %+v", frighteningMinions))
+				log(fmt.Sprintf("Danger: %v", frighteningMinions))
 				awayMinionCoord := getAwayFromMinions(currentGrid, myExplorer, frighteningMinions, distFromMe, prevFromMe, distFromMeRaw, prevFromMeRaw)
 
-				log(fmt.Sprintf("target is %+v", awayMinionCoord))
+				log(fmt.Sprintf("target is %v", awayMinionCoord))
 
 				firstOne := awayMinionCoord
 
@@ -796,10 +818,10 @@ func main() {
 					currentStep = prev
 				}
 
-				log(fmt.Sprintf("Path (from last to first): %+v", path))
+				log(fmt.Sprintf("Path (from last to first): %v", path))
 
 				nextMove := firstOne
-				log(fmt.Sprintf("immediate move: %+v", nextMove))
+				log(fmt.Sprintf("immediate move: %v", nextMove))
 				sendMove(nextMove.x, nextMove.y, "Avoiding minion")
 			} else if len(explorers) > 1 {
 				best := getBestExplorer(myExplorer, explorers)
