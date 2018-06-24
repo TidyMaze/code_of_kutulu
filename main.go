@@ -313,7 +313,7 @@ func getCloseTraversableCells(g grid, from coord, distFromMe map[coord]int, mini
 	return res
 }
 
-func getFarestCoord(g grid, minions []minion, candidates []coord) coord {
+func getFarestCoord(g grid, minions []minion, explorers []explorer, myExplorer explorer, candidates []coord) coord {
 	if len(candidates) == 0 {
 		panic("no candidates for farest coord")
 	}
@@ -322,6 +322,7 @@ func getFarestCoord(g grid, minions []minion, candidates []coord) coord {
 	for i, c := range candidates {
 
 		dist, _ := dijkstraRaw(g, c)
+
 		sum := 0.0
 		count := 0
 		for _, m := range minions {
@@ -335,19 +336,34 @@ func getFarestCoord(g grid, minions []minion, candidates []coord) coord {
 
 		score := sum / float64(count)
 
-		if bestDistance == -1 || score > bestDistance {
+		sumEx := 0.0
+		countEx := 0
+		for _, e := range explorers {
+			thisDist, prs := dist[e.coord]
+			if prs && e.id != myExplorer.id {
+				checkDst(thisDist)
+				sumEx += float64(thisDist)
+				countEx++
+			}
+		}
+
+		scoreEx := sumEx / float64(countEx)
+
+		scoreTot := score - scoreEx
+
+		if bestDistance == -1 || scoreTot > bestDistance {
 			bestIndex = i
-			bestDistance = score
+			bestDistance = scoreTot
 			log("Farest : ", candidates[bestIndex], " with distance ", bestDistance)
 		}
 	}
 	return candidates[bestIndex]
 }
 
-func getAwayFromMinions(g grid, me explorer, minions []minion, distFromMe map[coord]int, prevFromMe map[coord]coord, distFromMeRaw map[coord]int, prevFromMeRaw map[coord]coord) coord {
+func getAwayFromMinions(g grid, me explorer, minions []minion, explorers []explorer, distFromMe map[coord]int, prevFromMe map[coord]coord, distFromMeRaw map[coord]int, prevFromMeRaw map[coord]coord) coord {
 	empties := getCloseTraversableCells(g, me.coord, distFromMe, minions)
 	log(fmt.Sprintf("empties: %v", empties))
-	return getFarestCoord(g, minions, empties)
+	return getFarestCoord(g, minions, explorers, me, empties)
 }
 
 func getBestExplorer(me explorer, explorers []explorer) coord {
@@ -802,7 +818,7 @@ func main() {
 			frighteningMinions := getFrighteningMinions(myExplorer, wanderers, slashers, spawningMinions, distFromMeRaw)
 			if len(frighteningMinions) > 0 {
 				log(fmt.Sprintf("Danger: %v", frighteningMinions))
-				awayMinionCoord := getAwayFromMinions(currentGrid, myExplorer, frighteningMinions, distFromMe, prevFromMe, distFromMeRaw, prevFromMeRaw)
+				awayMinionCoord := getAwayFromMinions(currentGrid, myExplorer, frighteningMinions, explorers, distFromMe, prevFromMe, distFromMeRaw, prevFromMeRaw)
 
 				log(fmt.Sprintf("target is %v", awayMinionCoord))
 
