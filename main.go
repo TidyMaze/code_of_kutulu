@@ -13,6 +13,10 @@ import (
 	"sort"
 )
 
+// 1.0 => 6
+// 1.1 => 70
+const FactDistExplorers = 0.9
+
 // TraversableDist how far we search available cells
 // 3 => 168
 // 4 => 63
@@ -349,7 +353,7 @@ func getFarestCoord(g grid, minions []minion, explorers []explorer, myExplorer e
 
 		scoreEx := sumEx / float64(countEx)
 
-		scoreTot := score - scoreEx
+		scoreTot := score - FactDistExplorers*scoreEx
 
 		if bestDistance == -1 || scoreTot > bestDistance {
 			bestIndex = i
